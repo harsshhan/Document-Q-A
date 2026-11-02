@@ -58,6 +58,25 @@ pipeline {
                 '''
             }
         }
+
+        stage('Push Images to AWS ECR') {
+            steps {
+                script {
+                    def registry = '339712882309.dkr.ecr.ap-south-1.amazonaws.com'
+
+                    sh """
+                        aws ecr get-login-password --region ap-south-1 |
+                        docker login --username AWS --password-stdin ${registry}
+
+                        docker tag document-qa-backend:latest ${registry}/document-qa-backend:latest
+                        docker tag document-qa-frontend:latest ${registry}/document-qa-frontend:latest
+
+                        docker push ${registry}/document-qa-backend:latest
+                        docker push ${registry}/document-qa-frontend:latest
+                    """
+                }
+            }
+        }
     }
 
     post {
