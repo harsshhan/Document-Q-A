@@ -1,65 +1,40 @@
-from fastapi import FastAPI, UploadFile, File
-from services.pdf_loader import extract_text
-from services.chunking import chunk_text
-from services.embedding import generate_embeddings
-from services.vector_store import create_index,search
-from services.llm import generate_answer
+"""FastAPI application entrypoint.
 
-app = FastAPI()
+Run locally with:
+    uvicorn main:app --reload
+"""
 
-@app.get("/")
-def home():
-    return {"message": "Backend running"}
+from fastapi import FastAPI
 
-@app.post("/upload")
-async def upload_pdf(file: UploadFile = File(...)):
-    
-    text = extract_text(file.file)
-    chunks = chunk_text(text)
-    embeddings = generate_embeddings(chunks=chunks)
-
-    create_index(embeddings, chunks)
-
-    return {
-        "message": "Document processed",
-        "chunks": len(chunks)
-    }
+from api.routes.ask import router as ask_router
+from api.routes.auth import router as auth_router
+from api.routes.documents import router as documents_router
+from core.config import validate_startup_settings
 
 
+def create_app() -> FastAPI:
+    # Refuse to start with an unsafe/missing signing key instead of falling back
+    # to a weak default.
+    validate_startup_settings()
 
-@app.get("/search")
-def search_chunks(query: str):
-    
-    query_embedding = generate_embeddings([query])[0]
+    app = FastAPI(
+        title="Document Q&A API",
+        version="1.0.0",
+        description=(
+            "Authenticated RAG backend: PDF ingestion, Gemini embeddings and "
+            "PostgreSQL/pgvector retrieval."
+        ),
+    )
 
-    results = search(query_embedding)
+    @app.get("/", tags=["health"])
+    def home() -> dict[str, str]:
+        return {"message": "Backend running"}
 
-    return {
-        "query": query,
-        "results": results
-    }
+    app.include_router(auth_router)
+    app.include_router(documents_router)
+    app.include_router(ask_router)
 
-@app.get("/ask")
-def ask(query: str):
+    return app
 
-    try:
-        # 1. Convert query → embedding
-        query_embedding = generate_embeddings([query])[0]
 
-        # 2. Retrieve relevant chunks
-        chunks = search(query_embedding)
-
-        # 3. Combine context
-        context = "\n".join(chunks)
-
-        # 4. Generate answer
-        answer = generate_answer(context, query)
-
-        return {
-            "query": query,
-            "answer": answer,
-            "chunks_used": chunks
-        }
-
-    except Exception as e:
-        return {"error": str(e)}
+app = create_app()

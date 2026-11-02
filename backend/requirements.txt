@@ -1,0 +1,35 @@
+# Dependencies for the Document Q&A backend (runtime + tests).
+
+# Web API
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+python-multipart>=0.0.12
+
+# PDF parsing (used by services/pdf_loader.py)
+PyPDF2>=3.0.1
+
+# Configuration (used by core/config.py)
+pydantic-settings>=2.5.0
+python-dotenv>=1.0.1
+
+# Gemini REST client (used by core/gemini.py, services/embedding.py, services/llm.py)
+httpx>=0.27.0
+
+# PostgreSQL + pgvector persistence
+sqlalchemy[asyncio]>=2.0.36
+asyncpg>=0.30.0
+pgvector>=0.3.6
+alembic>=1.14.0
+
+# Private object storage for the original PDFs (used by services/s3_storage.py)
+boto3>=1.35.0
+
+# Authentication (JWT + Argon2 password hashing)
+PyJWT>=2.9.0
+pwdlib[argon2]>=0.2.1
+email-validator>=2.2.0
+
+# Testing (used by tests/ and the CI workflow)
+pytest>=8.3.0
+pytest-cov>=6.0.0
+pytest-asyncio>=0.24.0
