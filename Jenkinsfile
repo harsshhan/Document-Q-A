@@ -49,6 +49,15 @@ pipeline {
                 '''
             }
         }
+
+        stage('Trivy Security Scan') {
+            steps {
+                sh '''
+                    trivy image --severity HIGH,CRITICAL --ignore-unfixed document-qa-backend:latest
+                    trivy image --severity HIGH,CRITICAL --ignore-unfixed document-qa-frontend:latest
+                '''
+            }
+        }
     }
 
     post {
