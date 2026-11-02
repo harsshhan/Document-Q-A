@@ -2,6 +2,7 @@ pipeline {
     agent any
 
     environment {
+        REGISTRY = '339712882309.dkr.ecr.ap-south-1.amazonaws.com'
         BACKEND_IMAGE = 'document-qa-backend'
         FRONTEND_IMAGE = 'document-qa-frontend'
     }
@@ -53,28 +54,37 @@ pipeline {
         stage('Trivy Security Scan') {
             steps {
                 sh '''
-                    trivy image --severity HIGH,CRITICAL --ignore-unfixed document-qa-backend:latest
-                    trivy image --severity HIGH,CRITICAL --ignore-unfixed document-qa-frontend:latest
+                    trivy image --severity HIGH,CRITICAL --ignore-unfixed $BACKEND_IMAGE:latest
+                    trivy image --severity HIGH,CRITICAL --ignore-unfixed $FRONTEND_IMAGE:latest
                 '''
             }
         }
 
-        stage('Push Images to AWS ECR') {
+        stage('Build and Push Multi-Platform Images') {
             steps {
-                script {
-                    def registry = '339712882309.dkr.ecr.ap-south-1.amazonaws.com'
+                sh '''
+                    REGISTRY=$REGISTRY
 
-                    sh """
-                        aws ecr get-login-password --region ap-south-1 |
-                        docker login --username AWS --password-stdin ${registry}
+                    docker buildx create \
+                      --name document-qa-builder \
+                      --driver docker-container \
+                      --use || docker buildx use document-qa-builder
 
-                        docker tag document-qa-backend:latest ${registry}/document-qa-backend:latest
-                        docker tag document-qa-frontend:latest ${registry}/document-qa-frontend:latest
+                    docker buildx inspect --bootstrap
 
-                        docker push ${registry}/document-qa-backend:latest
-                        docker push ${registry}/document-qa-frontend:latest
-                    """
-                }
+                    aws ecr get-login-password --region ap-south-1 |
+                    docker login --username AWS --password-stdin $REGISTRY
+
+                    docker buildx build \
+                      --platform linux/amd64,linux/arm64 \
+                      -t $REGISTRY/$BACKEND_IMAGE:latest \
+                      --push ./backend
+
+                    docker buildx build \
+                      --platform linux/amd64,linux/arm64 \
+                      -t $REGISTRY/$FRONTEND_IMAGE:latest \
+                      --push ./frontend
+                '''
             }
         }
     }
